@@ -135,12 +135,20 @@ jobs:
           sudo rm -rf /usr/share/dotnet /opt/ghc 2>/dev/null || true
           df -h
 
+      - name: Build Cobalt Docker Image (local, no GCR auth needed)
+        run: |
+          # gcr.io/cobalt-dev/linux is private (requires GCP auth) — build locally from the
+          # checked-out cobalt repo instead. Mirrors .github/actions/docker without GHCR/GAR push.
+          echo "Building linux docker image locally from cobalt checkout..."
+          docker build -t cobalt-linux ./cobalt/cobalt/docker/linux
+          docker images cobalt-linux --format '{{.Repository}}:{{.Tag}} {{.Size}}'
+
       - name: Build APK (Docker — android-arm64 gold)
         run: |
           PLAT="${{ github.event.inputs.cobalt_platform || 'android-arm64' }}"
           echo "Building $PLAT ..."
           docker run --rm -v "$PWD/cobalt:/workspace" -w /workspace \
-            gcr.io/cobalt-dev/linux \
+            cobalt-linux \
             bash -c "python cobalt/build/gn.py -p $PLAT -c gold && autoninja -C out/${PLAT}_gold cobalt/android:cobalt_apk"
           find cobalt/out -name "*.apk" -type f | head -n 20
           APK=$(find cobalt/out -name "*.apk" -type f | head -1)
